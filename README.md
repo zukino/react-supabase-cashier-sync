@@ -1,8 +1,6 @@
-[![CodeGuide](/codeguide-backdrop.svg)](https://codeguide.dev)
+# React Supabase Cashier Sync
 
-# CodeGuide Vite + Supabase Starter
-
-A modern web application starter template built with Vite and React, featuring a beautiful UI and Supabase integration.
+A modern cashier application with offline-first architecture and real-time synchronization between local SQLite database and cloud Supabase PostgreSQL.
 
 ## Tech Stack
 
