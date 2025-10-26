@@ -74,6 +74,7 @@ export const Customers: React.FC = () => {
     handleSubmit: handleEditSubmit,
     reset: resetEdit,
     setValue: setEditValue,
+    formState: { errors: editErrors },
   } = useForm<CreateCustomerRequest>({
     resolver: zodResolver(CustomerSchema.omit({ id: true, created_at: true, updated_at: true, synced_at: true })),
   });

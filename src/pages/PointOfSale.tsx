@@ -320,7 +320,7 @@ export const PointOfSale: React.FC = () => {
                   <SelectValue placeholder="Select customer (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Guest Customer</SelectItem>
+                  <SelectItem value="guest">Guest Customer</SelectItem>
                   {customers?.map((customer) => (
                     <SelectItem key={customer.id} value={customer.id!}>
                       {customer.name}
