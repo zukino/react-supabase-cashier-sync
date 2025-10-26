@@ -77,6 +77,7 @@ export const Inventory: React.FC = () => {
     register: registerAdd,
     handleSubmit: handleAddSubmit,
     reset: resetAdd,
+    setValue: setAddValue,
     formState: { errors: addErrors },
   } = useForm<CreateProductRequest>({
     resolver: zodResolver(ProductSchema.omit({ id: true, created_at: true, updated_at: true, synced_at: true })),
@@ -413,7 +414,7 @@ export const Inventory: React.FC = () => {
 
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
-              <Select onValueChange={(value) => setEditValue("category", value)}>
+              <Select onValueChange={(value) => setAddValue("category", value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>

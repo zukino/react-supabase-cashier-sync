@@ -163,12 +163,28 @@ class LocalDBService {
               total + (product.price * product.stock), 0
             ),
           } as T;
+        case 'create_product':
+          return this.mockCreateProduct(args?.product) as T;
         default:
           return {} as T;
       }
     }
 
     return invoke<T>(command, args);
+  }
+
+  // Mock helper methods for safeInvoke
+  private mockCreateProduct(product: CreateProductRequest): string {
+    const id = `mock-product-${Date.now()}`;
+    const mockProduct = {
+      id,
+      ...product,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    mockData.products.push(mockProduct as any);
+    console.log('Mock: Created product', mockProduct);
+    return id;
   }
 
   // Transaction operations
@@ -230,7 +246,7 @@ class LocalDBService {
         updated_at: new Date().toISOString(),
       };
 
-      const id = await invoke<string>("create_product", {
+      const id = await this.safeInvoke<string>("create_product", {
         product: productData,
       });
 
