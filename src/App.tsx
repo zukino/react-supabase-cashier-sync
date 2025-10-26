@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SyncProvider } from "./contexts/SyncContext";
 import { ErrorBoundary } from "./components/cashier/ErrorBoundary";
-import { SyncStatusIndicator } from "./components/cashier/SyncStatusIndicator";
 import { Dashboard, PointOfSale, Inventory, Customers } from "./pages";
 import { Button } from "./components/ui/button";
 import { Badge } from "./components/ui/badge";
@@ -201,6 +200,7 @@ export default function App() {
             <main className="flex-1 overflow-auto">
               {renderCurrentPage()}
             </main>
+          </div>
           </div>
         </ErrorBoundary>
       </SyncProvider>
