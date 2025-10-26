@@ -27,16 +27,12 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>("dashboard");
   const [syncState, setSyncState] = useState(syncService.getState());
 
-  // Subscribe to sync state changes
+  // Subscribe to sync state changes (SyncProvider handles starting/stopping)
   React.useEffect(() => {
     const unsubscribe = syncService.subscribe(setSyncState);
 
-    // Start auto sync when app mounts
-    syncService.start();
-
     return () => {
       unsubscribe();
-      syncService.stop();
     };
   }, []);
 

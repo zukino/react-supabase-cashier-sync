@@ -83,7 +83,13 @@ class LocalDBService {
   // Helper method to safely invoke Tauri commands
   private async safeInvoke<T>(command: string, args?: any): Promise<T> {
     if (!isTauriAvailable) {
-      console.warn(`Tauri not available, mocking ${command} call`);
+      // Only show the info message once per session for the first call
+      if (typeof window !== 'undefined' && !window.__TAURI_INFO_SHOWN__) {
+        console.info('🌐 Running in web development mode - Using mock data');
+        console.info('💡 Tauri desktop features are not available in browser');
+        console.info('🚀 Run "npm run tauri:dev" for full desktop experience');
+        window.__TAURI_INFO_SHOWN__ = true;
+      }
       // Return mock data for development
       switch (command) {
         case 'get_transactions':
