@@ -18,9 +18,65 @@ const isTauriAvailable = typeof window !== 'undefined' && window.__TAURI__;
 
 // Mock data for web development
 const mockData = {
-  transactions: [],
-  products: [],
-  customers: [],
+  transactions: [
+    {
+      id: "mock-transaction-1",
+      customer_id: "mock-customer-1",
+      items: [
+        {
+          id: "mock-item-1",
+          transaction_id: "mock-transaction-1",
+          product_id: "mock-product-1",
+          quantity: 2,
+          unit_price: 50000,
+          total_price: 100000,
+        }
+      ],
+      total_amount: 100000,
+      payment_method: "cash",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      synced_at: null,
+    }
+  ],
+  products: [
+    {
+      id: "mock-product-1",
+      name: "Mock Product 1",
+      description: "A sample product for development",
+      barcode: "123456789",
+      price: 50000,
+      stock: 100,
+      category: "General",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      synced_at: null,
+    },
+    {
+      id: "mock-product-2",
+      name: "Mock Product 2",
+      description: "Another sample product",
+      barcode: "987654321",
+      price: 25000,
+      stock: 50,
+      category: "General",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      synced_at: null,
+    }
+  ],
+  customers: [
+    {
+      id: "mock-customer-1",
+      name: "Mock Customer",
+      email: "customer@example.com",
+      phone: "08123456789",
+      address: "Mock Address",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      synced_at: null,
+    }
+  ],
 };
 
 class LocalDBService {
@@ -38,10 +94,12 @@ class LocalDBService {
           return mockData.customers as T;
         case 'get_database_stats':
           return {
-            totalTransactions: 0,
-            totalProducts: 0,
-            totalCustomers: 0,
-            totalStockValue: 0,
+            totalTransactions: mockData.transactions.length,
+            totalProducts: mockData.products.length,
+            totalCustomers: mockData.customers.length,
+            totalStockValue: mockData.products.reduce((total, product) =>
+              total + (product.price * product.stock), 0
+            ),
           } as T;
         default:
           return {} as T;
@@ -316,28 +374,12 @@ class LocalDBService {
     totalCustomers: number;
     totalStockValue: number;
   }> {
-    try {
-      const [transactions, products, customers] = await Promise.all([
-        this.getTransactions(),
-        this.getProducts(),
-        this.getCustomers(),
-      ]);
-
-      const totalStockValue = products.reduce(
-        (sum, product) => sum + product.price * product.stock,
-        0
-      );
-
-      return {
-        totalTransactions: transactions.length,
-        totalProducts: products.length,
-        totalCustomers: customers.length,
-        totalStockValue,
-      };
-    } catch (error) {
-      console.error("Failed to get database stats:", error);
-      throw new Error(`Failed to get database stats: ${error}`);
-    }
+    return this.safeInvoke<{
+      totalTransactions: number;
+      totalProducts: number;
+      totalCustomers: number;
+      totalStockValue: number;
+    }>("get_database_stats");
   }
 }
 

@@ -17,16 +17,16 @@ interface SyncProviderProps {
 
 export const SyncProvider: React.FC<SyncProviderProps> = ({ children }) => {
   const [syncState, setSyncState] = useState<SyncState>(syncService.getState());
-  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
     // Subscribe to sync state changes
     const unsubscribe = syncService.subscribe(setSyncState);
 
-    // Start auto sync when component mounts
-    if (!isInitialized) {
+    // Start auto sync only if Supabase is configured
+    try {
       syncService.start();
-      setIsInitialized(true);
+    } catch (error) {
+      console.warn("Failed to start sync service:", error);
     }
 
     // Cleanup on unmount
@@ -34,7 +34,7 @@ export const SyncProvider: React.FC<SyncProviderProps> = ({ children }) => {
       unsubscribe();
       syncService.stop();
     };
-  }, [isInitialized]);
+  }, []); // Empty dependency array - run once on mount
 
   const contextValue: SyncContextType = {
     syncState,
