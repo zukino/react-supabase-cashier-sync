@@ -13,9 +13,59 @@ import {
   UpdateInventoryParams,
 } from "../types/database";
 
+// Check if Tauri is available (web vs desktop environment)
+const isTauriAvailable = typeof window !== 'undefined' && window.__TAURI__;
+
+// Mock data for web development
+const mockData = {
+  transactions: [],
+  products: [],
+  customers: [],
+};
+
 class LocalDBService {
+  // Helper method to safely invoke Tauri commands
+  private async safeInvoke<T>(command: string, args?: any): Promise<T> {
+    if (!isTauriAvailable) {
+      console.warn(`Tauri not available, mocking ${command} call`);
+      // Return mock data for development
+      switch (command) {
+        case 'get_transactions':
+          return mockData.transactions as T;
+        case 'get_products':
+          return mockData.products as T;
+        case 'get_customers':
+          return mockData.customers as T;
+        case 'get_database_stats':
+          return {
+            totalTransactions: 0,
+            totalProducts: 0,
+            totalCustomers: 0,
+            totalStockValue: 0,
+          } as T;
+        default:
+          return {} as T;
+      }
+    }
+
+    return invoke<T>(command, args);
+  }
+
   // Transaction operations
   async createTransaction(transaction: CreateTransactionRequest): Promise<string> {
+    if (!isTauriAvailable) {
+      const id = `mock-transaction-${Date.now()}`;
+      const mockTransaction = {
+        id,
+        ...transaction,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      mockData.transactions.push(mockTransaction as any);
+      console.log('Mock: Created transaction', mockTransaction);
+      return id;
+    }
+
     try {
       const transactionData = {
         ...transaction,
@@ -35,17 +85,10 @@ class LocalDBService {
   }
 
   async getTransactions(params?: GetTransactionsParams): Promise<Transaction[]> {
-    try {
-      const transactions = await invoke<Transaction[]>("get_transactions", {
-        limit: params?.limit,
-        offset: params?.offset,
-      });
-
-      return transactions;
-    } catch (error) {
-      console.error("Failed to get transactions:", error);
-      throw new Error(`Failed to get transactions: ${error}`);
-    }
+    return this.safeInvoke<Transaction[]>("get_transactions", {
+      limit: params?.limit,
+      offset: params?.offset,
+    });
   }
 
   async getTransaction(id: string): Promise<Transaction | null> {
@@ -79,29 +122,24 @@ class LocalDBService {
   }
 
   async getProducts(params?: GetProductsParams): Promise<Product[]> {
-    try {
-      const products = await invoke<Product[]>("get_products", {
-        limit: params?.limit,
-        offset: params?.offset,
-      });
+    const products = await this.safeInvoke<Product[]>("get_products", {
+      limit: params?.limit,
+      offset: params?.offset,
+    });
 
-      // If search parameter is provided, filter the results
-      if (params?.search) {
-        const searchTerm = params.search.toLowerCase();
-        return products.filter(
-          (product) =>
-            product.name.toLowerCase().includes(searchTerm) ||
-            product.description?.toLowerCase().includes(searchTerm) ||
-            product.barcode?.toLowerCase().includes(searchTerm) ||
-            product.category?.toLowerCase().includes(searchTerm)
-        );
-      }
-
-      return products;
-    } catch (error) {
-      console.error("Failed to get products:", error);
-      throw new Error(`Failed to get products: ${error}`);
+    // If search parameter is provided, filter the results
+    if (params?.search) {
+      const searchTerm = params.search.toLowerCase();
+      return products.filter(
+        (product) =>
+          product.name.toLowerCase().includes(searchTerm) ||
+          product.description?.toLowerCase().includes(searchTerm) ||
+          product.barcode?.toLowerCase().includes(searchTerm) ||
+          product.category?.toLowerCase().includes(searchTerm)
+      );
     }
+
+    return products;
   }
 
   async getProduct(id: string): Promise<Product | null> {
@@ -172,29 +210,24 @@ class LocalDBService {
   }
 
   async getCustomers(params?: GetCustomersParams): Promise<Customer[]> {
-    try {
-      const customers = await invoke<Customer[]>("get_customers", {
-        limit: params?.limit,
-        offset: params?.offset,
-      });
+    const customers = await this.safeInvoke<Customer[]>("get_customers", {
+      limit: params?.limit,
+      offset: params?.offset,
+    });
 
-      // If search parameter is provided, filter the results
-      if (params?.search) {
-        const searchTerm = params.search.toLowerCase();
-        return customers.filter(
-          (customer) =>
-            customer.name.toLowerCase().includes(searchTerm) ||
-            customer.email?.toLowerCase().includes(searchTerm) ||
-            customer.phone?.toLowerCase().includes(searchTerm) ||
-            customer.address?.toLowerCase().includes(searchTerm)
-        );
-      }
-
-      return customers;
-    } catch (error) {
-      console.error("Failed to get customers:", error);
-      throw new Error(`Failed to get customers: ${error}`);
+    // If search parameter is provided, filter the results
+    if (params?.search) {
+      const searchTerm = params.search.toLowerCase();
+      return customers.filter(
+        (customer) =>
+          customer.name.toLowerCase().includes(searchTerm) ||
+          customer.email?.toLowerCase().includes(searchTerm) ||
+          customer.phone?.toLowerCase().includes(searchTerm) ||
+          customer.address?.toLowerCase().includes(searchTerm)
+      );
     }
+
+    return customers;
   }
 
   async getCustomer(id: string): Promise<Customer | null> {
