@@ -10,12 +10,16 @@ import {
   Users,
   TrendingUp,
   DollarSign,
-  Wifi
+  Wifi,
+  WifiOff,
+  CheckCircle
 } from "lucide-react";
 import { useDatabaseStats } from "@/hooks";
+import { useSyncContext } from "@/contexts/SyncContext";
 
 export const Dashboard: React.FC = () => {
   const { data: stats, isLoading: statsLoading } = useDatabaseStats();
+  const { syncState } = useSyncContext();
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("id-ID", {
