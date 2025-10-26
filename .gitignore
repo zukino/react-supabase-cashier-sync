@@ -17,7 +17,6 @@ dist-ssr
 src-tauri/target
 src-tauri/Cargo.lock
 src-tauri/.cargo
-src-tauri/icons/
 src-tauri/gen/
 react-supabase-cashier-sync
 
