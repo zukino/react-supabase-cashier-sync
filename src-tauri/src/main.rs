@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::fs;
 use std::path::PathBuf;
-use tauri::{State, Manager};
+use tauri::State;
 use chrono::{DateTime, Utc};
 
 // Data structures
@@ -65,8 +65,8 @@ pub struct DbState {
 
 // Initialize database
 fn init_database() -> SqlResult<Connection> {
-    let app_dir = tauri::api::path::app_data_dir(&tauri::Config::default())
-        .unwrap_or_else(|| PathBuf::from("."))
+    let app_dir = std::env::current_dir()
+        .unwrap_or_else(|_| PathBuf::from("."))
         .join("react-supabase-cashier-sync");
 
     fs::create_dir_all(&app_dir).unwrap();
