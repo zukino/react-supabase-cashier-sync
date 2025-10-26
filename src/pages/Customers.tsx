@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DatabaseError } from "@/components/DatabaseError";
 import {
   Dialog,
   DialogContent,
@@ -53,7 +54,7 @@ export const Customers: React.FC = () => {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
-  const { data: customers, isLoading, refetch } = useCustomers({
+  const { data: customers, isLoading, error, refetch } = useCustomers({
     limit: 1000,
   });
 
@@ -126,6 +127,25 @@ export const Customers: React.FC = () => {
     setEditValue("address", customer.address || "");
     setIsEditDialogOpen(true);
   };
+
+  // Show error if database connection fails
+  if (error) {
+    return (
+      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-3xl font-bold tracking-tight">Customer Management</h2>
+          <Button onClick={() => setIsAddDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Customer
+          </Button>
+        </div>
+        <DatabaseError
+          error={error}
+          onRetry={refetch}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">

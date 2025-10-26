@@ -4,6 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { SyncStatusIndicator } from "@/components/cashier/SyncStatusIndicator";
+import { DatabaseError } from "@/components/DatabaseError";
+import { DevelopmentModeIndicator } from "@/components/DevelopmentModeIndicator";
 import {
   ShoppingCart,
   Package,
@@ -18,7 +20,7 @@ import { useDatabaseStats } from "@/hooks";
 import { useSyncContext } from "@/contexts/SyncContext";
 
 export const Dashboard: React.FC = () => {
-  const { data: stats, isLoading: statsLoading } = useDatabaseStats();
+  const { data: stats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useDatabaseStats();
   const { syncState } = useSyncContext();
 
   const formatCurrency = (amount: number) => {
@@ -28,13 +30,31 @@ export const Dashboard: React.FC = () => {
     }).format(amount);
   };
 
-  
+  // Show error if database connection fails
+  if (statsError) {
+    return (
+      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+        <div className="flex items-center justify-between space-y-2">
+          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+          <SyncStatusIndicator showButton={true} />
+        </div>
+        <DatabaseError
+          error={statsError}
+          onRetry={() => refetchStats()}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
         <SyncStatusIndicator showButton={true} />
       </div>
+
+      {/* Development Mode Indicator */}
+      <DevelopmentModeIndicator />
 
       {/* Sync Status Info */}
       <SyncStatusIndicator variant="detailed" />

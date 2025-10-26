@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { DatabaseError } from "@/components/DatabaseError";
 import {
   Dialog,
   DialogContent,
@@ -48,11 +49,11 @@ export const PointOfSale: React.FC = () => {
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [barcodeInput, setBarcodeInput] = useState("");
 
-  const { data: products, isLoading: productsLoading } = useProducts({
+  const { data: products, isLoading: productsLoading, error: productsError, refetch: refetchProducts } = useProducts({
     limit: 100,
   });
 
-  const { data: customers, isLoading: customersLoading } = useCustomers({
+  const { data: customers, isLoading: customersLoading, error: customersError, refetch: refetchCustomers } = useCustomers({
     limit: 100,
   });
 
@@ -198,6 +199,27 @@ export const PointOfSale: React.FC = () => {
     { value: "ewallet", label: "E-Wallet", icon: Smartphone },
     { value: "transfer", label: "Transfer", icon: Building },
   ];
+
+  // Show error if database connections fail
+  if (productsError || customersError) {
+    return (
+      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-3xl font-bold tracking-tight">Point of Sale</h2>
+          <Badge variant={cart.length > 0 ? "default" : "secondary"}>
+            {cart.length} items
+          </Badge>
+        </div>
+        <DatabaseError
+          error={productsError || customersError}
+          onRetry={() => {
+            if (productsError) refetchProducts();
+            if (customersError) refetchCustomers();
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">

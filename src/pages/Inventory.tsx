@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { DatabaseError } from "@/components/DatabaseError";
 import {
   Dialog,
   DialogContent,
@@ -64,7 +65,7 @@ export const Inventory: React.FC = () => {
   const [stockQuantity, setStockQuantity] = useState(1);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
-  const { data: products, isLoading, refetch } = useProducts({
+  const { data: products, isLoading, error, refetch } = useProducts({
     limit: 1000,
   });
 
@@ -197,6 +198,25 @@ export const Inventory: React.FC = () => {
   const outOfStockProducts = filteredProducts.filter(p => p.stock === 0);
 
   const categories = [...new Set(products?.map(p => p.category).filter(Boolean) || [])];
+
+  // Show error if database connection fails
+  if (error) {
+    return (
+      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-3xl font-bold tracking-tight">Inventory Management</h2>
+          <Button onClick={() => setIsAddDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Product
+          </Button>
+        </div>
+        <DatabaseError
+          error={error}
+          onRetry={refetch}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">

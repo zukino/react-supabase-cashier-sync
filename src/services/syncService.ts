@@ -27,8 +27,14 @@ export interface SyncResult {
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+console.log("🔧 Supabase Configuration Check:");
+console.log("  URL:", supabaseUrl ? "✅ Configured" : "❌ Missing");
+console.log("  Anon Key:", supabaseAnonKey ? "✅ Configured" : "❌ Missing");
+
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn("Supabase configuration not found. Sync functionality will be disabled.");
+  console.warn("❌ Supabase configuration not found. Sync functionality will be disabled.");
+} else {
+  console.log("✅ Supabase configuration loaded successfully");
 }
 
 class SyncService {
@@ -239,7 +245,10 @@ class SyncService {
 
   // Perform the actual synchronization
   private async performSync(): Promise<SyncResult> {
+    console.log("🔄 Starting sync process...");
+
     if (!this.supabase) {
+      console.error("❌ Supabase not configured");
       throw new Error("Supabase not configured");
     }
 
@@ -253,28 +262,45 @@ class SyncService {
     try {
       // Get last sync timestamp from local storage or use a very old date
       const lastSyncTimestamp = lastSyncTime ? lastSyncTime.toISOString() : "1970-01-01T00:00:00.000Z";
+      console.log("📅 Last sync timestamp:", lastSyncTimestamp);
+
+      // Test Supabase connection
+      console.log("🔗 Testing Supabase connection...");
+      const { data, error } = await this.supabase.from('products').select('count').limit(1);
+      if (error) {
+        console.error("❌ Supabase connection test failed:", error);
+        throw new Error(`Supabase connection failed: ${error.message}`);
+      }
+      console.log("✅ Supabase connection test successful");
 
       // Sync transactions
+      console.log("💰 Syncing transactions...");
       const transactionsResult = await this.syncTransactions(lastSyncTimestamp);
       results.syncedTransactions = transactionsResult.syncedCount;
+      console.log(`✅ Transactions synced: ${transactionsResult.syncedCount}`);
 
       // Sync products
+      console.log("📦 Syncing products...");
       const productsResult = await this.syncProducts(lastSyncTimestamp);
       results.syncedProducts = productsResult.syncedCount;
+      console.log(`✅ Products synced: ${productsResult.syncedCount}`);
 
       // Sync customers
+      console.log("👥 Syncing customers...");
       const customersResult = await this.syncCustomers(lastSyncTimestamp);
       results.syncedCustomers = customersResult.syncedCount;
+      console.log(`✅ Customers synced: ${customersResult.syncedCount}`);
 
       // Update last sync time in local storage
       localStorage.setItem("lastSyncTime", new Date().toISOString());
 
+      console.log("✅ Sync process completed successfully");
       return {
         success: true,
         ...results,
       };
     } catch (error) {
-      console.error("Sync failed:", error);
+      console.error("❌ Sync failed:", error);
       throw error;
     }
   }
@@ -284,11 +310,14 @@ class SyncService {
     if (!this.supabase) throw new Error("Supabase not configured");
 
     try {
+      console.log("💰 Fetching transactions since:", lastSyncTimestamp);
+
       // Get transactions updated since last sync
       const transactions = await this.invokeDbCommand<Transaction[]>("get_transactions_since", {
         timestamp: lastSyncTimestamp,
       });
 
+      console.log(`📊 Found ${transactions.length} transactions to sync`);
       let syncedCount = 0;
 
       for (const transaction of transactions) {
@@ -473,9 +502,12 @@ class SyncService {
   // Helper method to invoke database commands
   private async invokeDbCommand<T>(command: string, args?: any): Promise<T> {
     try {
-      return await invoke<T>(command, args || {});
+      console.log(`🔧 Invoking Tauri command: ${command}`, args);
+      const result = await invoke<T>(command, args || {});
+      console.log(`✅ Tauri command ${command} success`);
+      return result;
     } catch (error) {
-      console.error(`Failed to invoke database command: ${command}`, error);
+      console.error(`❌ Failed to invoke database command: ${command}`, error);
       throw error;
     }
   }

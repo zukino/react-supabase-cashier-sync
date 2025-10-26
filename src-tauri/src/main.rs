@@ -65,20 +65,74 @@ pub struct DbState {
 
 // Initialize database
 fn init_database() -> SqlResult<Connection> {
-    let app_dir = std::env::current_dir()
-        .unwrap_or_else(|_| PathBuf::from("."))
-        .join("react-supabase-cashier-sync");
+    // Use proper app data directory
+    let app_dir = if cfg!(target_os = "macos") {
+        // macOS: ~/Library/Application Support/com.cashier.sync/
+        dirs::data_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join("com.cashier.sync")
+    } else if cfg!(target_os = "windows") {
+        // Windows: %APPDATA%/Cashier System/
+        dirs::data_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join("Cashier System")
+    } else {
+        // Linux: ~/.local/share/cashier-system/
+        dirs::data_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join("cashier-system")
+    };
 
-    fs::create_dir_all(&app_dir).unwrap();
+    fs::create_dir_all(&app_dir).map_err(|e| {
+        rusqlite::Error::SqliteFailure(
+            rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CANTOPEN),
+            Some(format!("Failed to create app directory: {}", e)),
+        )
+    })?;
 
     let db_path = app_dir.join("cashier.db");
-    let conn = Connection::open(db_path)?;
+    println!("📂 Database path: {:?}", db_path);
+    println!("🔍 Checking if database file exists: {}", db_path.exists());
 
-    // Enable foreign keys
-    conn.execute("PRAGMA foreign_keys = ON", [])?;
+    // Check if we can create the directory
+    println!("📁 Creating app directory: {:?}", app_dir);
+    match fs::create_dir_all(&app_dir) {
+        Ok(_) => println!("✅ App directory created successfully"),
+        Err(e) => {
+            println!("❌ Failed to create app directory: {}", e);
+            return Err(rusqlite::Error::SqliteFailure(
+                rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CANTOPEN),
+                Some(format!("Failed to create app directory: {}", e)),
+            ));
+        }
+    }
+
+    println!("🗄️ Opening database connection...");
+    let conn = match Connection::open(&db_path) {
+        Ok(conn) => {
+            println!("✅ Database connection opened successfully");
+            conn
+        }
+        Err(e) => {
+            println!("❌ Failed to open database: {}", e);
+            return Err(rusqlite::Error::SqliteFailure(
+                rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CANTOPEN),
+                Some(format!("Failed to open database at {:?}: {}", db_path, e)),
+            ));
+        }
+    };
+
+    // Set database connection options
+    conn.pragma_update(None, "foreign_keys", &1i32)?; // Enable foreign keys
+    conn.pragma_update(None, "journal_mode", &"WAL")?; // Use WAL mode for better concurrency
+    conn.pragma_update(None, "synchronous", &"NORMAL")?; // Balance between safety and performance
+    conn.pragma_update(None, "temp_store", &"MEMORY")?; // Store temporary tables in memory
 
     // Create tables
-    conn.execute(
+    println!("🛠️ Creating database tables...");
+
+    println!("  📋 Creating customers table...");
+    match conn.execute(
         "CREATE TABLE IF NOT EXISTS customers (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
@@ -90,9 +144,13 @@ fn init_database() -> SqlResult<Connection> {
             synced_at TEXT
         )",
         [],
-    )?;
+    ) {
+        Ok(_) => println!("  ✅ Customers table created successfully"),
+        Err(e) => println!("  ⚠️ Failed to create customers table: {}", e),
+    }
 
-    conn.execute(
+    println!("  📦 Creating products table...");
+    match conn.execute(
         "CREATE TABLE IF NOT EXISTS products (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
@@ -106,9 +164,13 @@ fn init_database() -> SqlResult<Connection> {
             synced_at TEXT
         )",
         [],
-    )?;
+    ) {
+        Ok(_) => println!("  ✅ Products table created successfully"),
+        Err(e) => println!("  ⚠️ Failed to create products table: {}", e),
+    }
 
-    conn.execute(
+    println!("  💰 Creating transactions table...");
+    match conn.execute(
         "CREATE TABLE IF NOT EXISTS transactions (
             id TEXT PRIMARY KEY,
             customer_id TEXT,
@@ -120,9 +182,13 @@ fn init_database() -> SqlResult<Connection> {
             FOREIGN KEY (customer_id) REFERENCES customers (id)
         )",
         [],
-    )?;
+    ) {
+        Ok(_) => println!("  ✅ Transactions table created successfully"),
+        Err(e) => println!("  ⚠️ Failed to create transactions table: {}", e),
+    }
 
-    conn.execute(
+    println!("  🛒 Creating transaction_items table...");
+    match conn.execute(
         "CREATE TABLE IF NOT EXISTS transaction_items (
             id TEXT PRIMARY KEY,
             transaction_id TEXT NOT NULL,
@@ -134,7 +200,10 @@ fn init_database() -> SqlResult<Connection> {
             FOREIGN KEY (product_id) REFERENCES products (id)
         )",
         [],
-    )?;
+    ) {
+        Ok(_) => println!("  ✅ Transaction_items table created successfully"),
+        Err(e) => println!("  ⚠️ Failed to create transaction_items table: {}", e),
+    }
 
     // Create indexes for better performance
     conn.execute("CREATE INDEX IF NOT EXISTS idx_transactions_updated_at ON transactions(updated_at)", [])?;
@@ -151,8 +220,15 @@ async fn create_transaction(
     transaction: Transaction,
     state: State<'_, DbState>,
 ) -> Result<String, String> {
-    let conn = state.conn.lock().map_err(|e| e.to_string())?;
-    let transaction_id = transaction.id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    println!("\n💰 [RUST] CREATE TRANSACTION COMMAND RECEIVED");
+    println!("📝 Transaction data: {:?}", transaction);
+
+    let conn = state.conn.lock().map_err(|e| format!("Failed to acquire database lock: {}", e))?;
+    let transaction_id = transaction.id.unwrap_or_else(|| {
+        let id = uuid::Uuid::new_v4().to_string();
+        println!("Generated new transaction ID: {}", id);
+        id
+    });
 
     let mut stmt = conn.prepare(
         "INSERT INTO transactions (id, customer_id, total_amount, payment_method, created_at, updated_at, synced_at)
@@ -250,6 +326,9 @@ async fn create_product(
     product: Product,
     state: State<'_, DbState>,
 ) -> Result<String, String> {
+    println!("\n📦 [RUST] CREATE PRODUCT COMMAND RECEIVED");
+    println!("📝 Product data: {:?}", product);
+
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     let product_id = product.id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
 
@@ -413,6 +492,10 @@ async fn update_inventory(
     quantity_change: i32,
     state: State<'_, DbState>,
 ) -> Result<(), String> {
+    println!("\n📊 [RUST] UPDATE INVENTORY COMMAND RECEIVED");
+    println!("📦 Product ID: {}", product_id);
+    println!("🔢 Quantity Change: {}", quantity_change);
+
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
 
     conn.execute(
@@ -623,6 +706,126 @@ async fn mark_product_synced(
 }
 
 #[tauri::command]
+async fn test_database_connection(state: State<'_, DbState>) -> Result<bool, String> {
+    println!("🔍 Testing database connection...");
+
+    match state.conn.lock() {
+        Ok(conn) => {
+            // Test with a simple query (use query_row for SELECT)
+            match conn.query_row("SELECT 1", [], |row| {
+                let _result: i32 = row.get(0)?;
+                Ok(())
+            }) {
+                Ok(_) => {
+                    println!("✅ Database connection test: SUCCESS");
+                    Ok(true)
+                }
+                Err(e) => {
+                    println!("❌ Database connection test: FAILED - {}", e);
+                    Err(format!("Database query failed: {}", e))
+                }
+            }
+        }
+        Err(e) => {
+            println!("❌ Database connection test: FAILED - {}", e);
+            Err(format!("Failed to acquire database lock: {}", e))
+        }
+    }
+}
+
+#[tauri::command]
+async fn ping() -> Result<String, String> {
+    println!("🏓 Ping command received");
+    Ok("pong".to_string())
+}
+
+#[tauri::command]
+async fn get_database_stats(state: State<'_, DbState>) -> Result<serde_json::Value, String> {
+    println!("\n📊 [RUST] GET DATABASE STATS COMMAND RECEIVED");
+
+    // Test database connection first
+    match state.conn.lock() {
+        Ok(conn) => {
+            println!("✅ Database lock acquired successfully");
+
+            // Test basic database query
+            match conn.query_row("SELECT 1", [], |row| {
+                let _result: i32 = row.get(0)?;
+                Ok(())
+            }) {
+                Ok(_) => println!("✅ Database connection test: SUCCESS"),
+                Err(e) => {
+                    println!("❌ Database connection test: FAILED - {}", e);
+                    return Err(format!("Database connection failed: {}", e));
+                }
+            }
+
+            // Get transactions count
+            let total_transactions: i64 = match conn.query_row("SELECT COUNT(*) FROM transactions", [], |row| row.get(0)) {
+                Ok(count) => {
+                    println!("📈 Total transactions: {}", count);
+                    count
+                }
+                Err(e) => {
+                    println!("⚠️ Failed to get transactions count: {}", e);
+                    0
+                }
+            };
+
+            // Get products count
+            let total_products: i64 = match conn.query_row("SELECT COUNT(*) FROM products", [], |row| row.get(0)) {
+                Ok(count) => {
+                    println!("📦 Total products: {}", count);
+                    count
+                }
+                Err(e) => {
+                    println!("⚠️ Failed to get products count: {}", e);
+                    0
+                }
+            };
+
+            // Get customers count
+            let total_customers: i64 = match conn.query_row("SELECT COUNT(*) FROM customers", [], |row| row.get(0)) {
+                Ok(count) => {
+                    println!("👥 Total customers: {}", count);
+                    count
+                }
+                Err(e) => {
+                    println!("⚠️ Failed to get customers count: {}", e);
+                    0
+                }
+            };
+
+            // Get total stock value
+            let total_stock_value: f64 = match conn.query_row("SELECT COALESCE(SUM(stock * price), 0) FROM products", [], |row| row.get(0)) {
+                Ok(value) => {
+                    println!("💰 Total stock value: {:.2}", value);
+                    value
+                }
+                Err(e) => {
+                    println!("⚠️ Failed to get stock value: {}", e);
+                    0.0
+                }
+            };
+
+            let stats = serde_json::json!({
+                "totalTransactions": total_transactions,
+                "totalProducts": total_products,
+                "totalCustomers": total_customers,
+                "totalStockValue": total_stock_value
+            });
+
+            println!("✅ [RUST] DATABASE STATS SUCCESS: {}", stats);
+            Ok(stats)
+        }
+        Err(e) => {
+            println!("❌ [RUST] DATABASE LOCK FAILED: {}", e);
+            Err(format!("Failed to acquire database lock: {}", e))
+        }
+    }
+}
+
+#[tauri::command]
 async fn mark_customer_synced(
     id: String,
     synced_at: String,
@@ -639,12 +842,26 @@ async fn mark_customer_synced(
 }
 
 fn main() {
+    println!("🚀 Starting Tauri application...");
+
     // Initialize database
-    let conn = init_database().expect("Failed to initialize database");
+    println!("📁 Initializing database...");
+    let conn = match init_database() {
+        Ok(conn) => {
+            println!("✅ Database initialized successfully");
+            conn
+        }
+        Err(e) => {
+            eprintln!("❌ Failed to initialize database: {}", e);
+            panic!("Database initialization failed: {}", e);
+        }
+    };
+
     let db_state = DbState {
         conn: Arc::new(Mutex::new(conn)),
     };
 
+    println!("🔧 Setting up Tauri builders...");
     tauri::Builder::default()
         .manage(db_state)
         .invoke_handler(tauri::generate_handler![
@@ -660,7 +877,10 @@ fn main() {
             get_customers_since,
             mark_transaction_synced,
             mark_product_synced,
-            mark_customer_synced
+            mark_customer_synced,
+            get_database_stats,
+            test_database_connection,
+            ping
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

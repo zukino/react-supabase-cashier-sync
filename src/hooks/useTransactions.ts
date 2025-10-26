@@ -44,7 +44,16 @@ export const useCreateTransaction = () => {
 export const useDatabaseStats = () => {
   return useQuery({
     queryKey: ["database-stats"],
-    queryFn: () => localDB.getDatabaseStats(),
+    queryFn: async () => {
+      try {
+        return await localDB.getDatabaseStats();
+      } catch (error) {
+        console.error("Failed to get database stats:", error);
+        throw error;
+      }
+    },
     staleTime: 1000 * 60 * 5, // 5 minutes
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 };

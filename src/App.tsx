@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SyncProvider } from "./contexts/SyncContext";
 import { ErrorBoundary } from "./components/cashier/ErrorBoundary";
+import { ActivityLogger } from "./components/ActivityLogger";
 import { Dashboard, PointOfSale, Inventory, Customers } from "./pages";
 import { Button } from "./components/ui/button";
 import { Badge } from "./components/ui/badge";
@@ -198,6 +199,9 @@ export default function App() {
             </main>
           </div>
           </div>
+
+          {/* Activity Logger */}
+          <ActivityLogger />
         </ErrorBoundary>
       </SyncProvider>
     </QueryClientProvider>
