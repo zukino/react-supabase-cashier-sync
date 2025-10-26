@@ -9,4 +9,12 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  // Tauri expects a fixed port, fail if that port is not available
+  server: {
+    port: 5173,
+    strictPort: true,
+  },
+  // to make use of `TAURI_DEBUG` and other env variables
+  // https://tauri.studio/v1/api/config#buildconfig.beforedevcommand
+  envPrefix: ['VITE_', 'TAURI_'],
 })

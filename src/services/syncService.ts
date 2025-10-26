@@ -1,8 +1,47 @@
-import { invoke } from "@tauri-apps/api/core";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { Transaction, Product, Customer } from "../types/database";
-import { localDB } from "./localDB";
 import { notificationService } from "./notificationService";
+
+// Check if Tauri is available (web vs desktop environment)
+const isTauriAvailable = typeof window !== 'undefined' && (
+  (window as any).__TAURI__ !== undefined ||
+  (window as any).__TAURI_INTERNALS__ !== undefined ||
+  (window as any).__TAURI_METADATA__ !== undefined ||
+  window.location.protocol === 'tauri:' ||
+  !window.location.href.startsWith('http')
+);
+
+console.log('🔍 SyncService Tauri Detection:', {
+  isTauriAvailable,
+  __TAURI__: !!(window as any).__TAURI__,
+  __TAURI_INTERNALS__: !!(window as any).__TAURI_INTERNALS__,
+  __TAURI_METADATA__: !!(window as any).__TAURI_METADATA__,
+  protocol: window.location?.protocol,
+  href: window.location?.href,
+  userAgent: navigator.userAgent
+});
+
+// Dynamic import for invoke function (only available in Tauri)
+let invoke: any = null;
+
+// Helper function to get invoke function
+async function getInvoke() {
+  if (!isTauriAvailable) {
+    throw new Error('Tauri is not available');
+  }
+
+  if (!invoke) {
+    try {
+      const module = await import("@tauri-apps/api/core");
+      invoke = module.invoke;
+    } catch (error) {
+      console.error('Failed to import invoke function:', error);
+      throw new Error('Failed to import Tauri invoke function');
+    }
+  }
+
+  return invoke;
+}
 
 // Sync status types
 export type SyncStatus = "idle" | "syncing" | "success" | "error" | "offline";
@@ -266,7 +305,7 @@ class SyncService {
 
       // Test Supabase connection
       console.log("🔗 Testing Supabase connection...");
-      const { data, error } = await this.supabase.from('products').select('count').limit(1);
+      const { error } = await this.supabase.from('products').select('count').limit(1);
       if (error) {
         console.error("❌ Supabase connection test failed:", error);
         throw new Error(`Supabase connection failed: ${error.message}`);
@@ -503,7 +542,10 @@ class SyncService {
   private async invokeDbCommand<T>(command: string, args?: any): Promise<T> {
     try {
       console.log(`🔧 Invoking Tauri command: ${command}`, args);
-      const result = await invoke<T>(command, args || {});
+
+      const invokeFunction = await getInvoke();
+      const result = await (invokeFunction as any)(command, args || {});
+
       console.log(`✅ Tauri command ${command} success`);
       return result;
     } catch (error) {

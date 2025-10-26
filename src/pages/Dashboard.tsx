@@ -6,6 +6,7 @@ import { Separator } from "@/components/ui/separator";
 import { SyncStatusIndicator } from "@/components/cashier/SyncStatusIndicator";
 import { DatabaseError } from "@/components/DatabaseError";
 import { DevelopmentModeIndicator } from "@/components/DevelopmentModeIndicator";
+import { TauriDebugger } from "@/components/TauriDebugger";
 import {
   ShoppingCart,
   Package,
@@ -221,6 +222,9 @@ export const Dashboard: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Tauri Debugger */}
+      <TauriDebugger />
     </div>
   );
 };
